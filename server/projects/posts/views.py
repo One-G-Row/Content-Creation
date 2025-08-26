@@ -18,6 +18,7 @@ from io import BytesIO
 import os
 import requests
 import json
+from urllib.parse import urljoin
 try:
     import feedparser
 except Exception:
@@ -88,40 +89,48 @@ def extract_image_from_html(html_text):
 
 
 def extract_image_from_entry(entry):
-    # media:content
-    media_content = _safe_get(entry, 'media_content', default=None)
-    if media_content and isinstance(media_content, list):
-        for m in media_content:
-            url = _safe_get(m, 'url', default=None)
-            if url:
-                return url
-    # media:thumbnail
-    media_thumb = _safe_get(entry, 'media_thumbnail', default=None)
-    if media_thumb and isinstance(media_thumb, list):
-        for m in media_thumb:
-            url = _safe_get(m, 'url', default=None)
-            if url:
-                return url
+    def pick_url(obj):
+        if isinstance(obj, dict):
+            return obj.get('url')
+        if isinstance(obj, list):
+            for o in obj:
+                if isinstance(o, dict) and o.get('url'):
+                    return o['url']
+        return None
+
+    base_link = getattr(entry, 'link', '') or _safe_get(entry, 'link', default='') or ''
+
+    # media:content / media:thumbnail
+    image = pick_url(getattr(entry, 'media_content', None)) or pick_url(getattr(entry, 'media_thumbnail', None))
+    if image:
+        return urljoin(base_link, image)
+
     # enclosures
-    enclosures = _safe_get(entry, 'enclosures', default=None)
-    if enclosures and isinstance(enclosures, list):
+    enclosures = getattr(entry, 'enclosures', None) or []
+    if isinstance(enclosures, list):
         for enc in enclosures:
-            enc_type = _safe_get(enc, 'type', default='') or ''
-            href = _safe_get(enc, 'href', default=None)
+            enc_type = (enc.get('type') or '') if isinstance(enc, dict) else ''
+            href = (enc.get('href') or '') if isinstance(enc, dict) else ''
             if href and enc_type.startswith('image'):
-                return href
-    # content array
-    content_list = _safe_get(entry, 'content', default=None)
+                return urljoin(base_link, href)
+
+    # links with rel='enclosure'
+    for l in getattr(entry, 'links', []) or []:
+        if isinstance(l, dict) and l.get('rel') == 'enclosure' and (l.get('type') or '').startswith('image') and l.get('href'):
+            return urljoin(base_link, l['href'])
+
+    # content[...].value and summary/description <img>
+    content_list = getattr(entry, 'content', None)
     if content_list and isinstance(content_list, list):
         for c in content_list:
             src = extract_image_from_html(_safe_get(c, 'value', default=''))
             if src:
-                return src
-    # summary html
-    summary_html = _safe_get(entry, 'summary', default=None) or _safe_get(entry, 'description', default=None)
-    img = extract_image_from_html(summary_html)
-    if img:
-        return img
+                return urljoin(base_link, src)
+
+    summary_html = getattr(entry, 'summary', None) or getattr(entry, 'description', None)
+    src = extract_image_from_html(summary_html)
+    if src:
+        return urljoin(base_link, src)
     return None
 
 
