@@ -16,15 +16,15 @@ function AIAgent() {
 
 	const demoData = useMemo(() => ({
 		news: [
-			{ type: "news", title: "African fintech raises new funding", summary: "A Nairobi-based fintech announced a seed extension to scale inclusive payments.", url: "https://example.com/africa-fintech", image: "", hashtags: defaultHashtags },
-			{ type: "news", title: "Egypt startup expands cloud services", summary: "Cairo startup launches regional cloud platform targeting SMEs across North Africa.", url: "https://example.com/egypt-cloud", image: "", hashtags: defaultHashtags }
+			{ type: "news", title: "African fintech raises new funding", summary: "A Nairobi-based fintech announced a seed extension to scale inclusive payments.", url: "https://example.com/africa-fintech", image: "https://placehold.co/600x320?text=Fintech", hashtags: defaultHashtags },
+			{ type: "news", title: "Egypt startup expands cloud services", summary: "Cairo startup launches regional cloud platform targeting SMEs across North Africa.", url: "https://example.com/egypt-cloud", image: "https://placehold.co/600x320?text=Cloud", hashtags: defaultHashtags }
 		],
 		success: [
-			{ type: "success", title: "Female-founded healthtech hits profitability", summary: "Lagos healthtech reaches profitability after expanding to rural clinics.", url: "https://example.com/healthtech", image: "", hashtags: defaultHashtags }
+			{ type: "success", title: "Female-founded healthtech hits profitability", summary: "Lagos healthtech reaches profitability after expanding to rural clinics.", url: "https://example.com/healthtech", image: "https://placehold.co/600x320?text=Healthtech", hashtags: defaultHashtags }
 		],
 		events: [
-			{ type: "event", title: "Africa Tech Summit (Virtual, Free)", summary: "Join thought leaders discussing AI adoption across the continent.", url: "https://example.com/ats-virtual", image: "", hashtags: defaultHashtags },
-			{ type: "event", title: "Women in Tech Africa Meetup — Accra", summary: "Community meetup focused on career pathways and mentorship.", url: "https://example.com/wita-accra", image: "", hashtags: defaultHashtags }
+			{ type: "event", title: "Africa Tech Summit (Virtual, Free)", summary: "Join thought leaders discussing AI adoption across the continent.", url: "https://example.com/ats-virtual", image: "https://placehold.co/600x320?text=Summit", hashtags: defaultHashtags },
+			{ type: "event", title: "Women in Tech Africa Meetup — Accra", summary: "Community meetup focused on career pathways and mentorship.", url: "https://example.com/wita-accra", image: "https://placehold.co/600x320?text=Meetup", hashtags: defaultHashtags }
 		]
 	}), []);
 
@@ -70,7 +70,7 @@ function AIAgent() {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
-					text: `${form.title}\n\n${form.summary}`.slice(0, 1100),
+					text: `${form.title}\n\n${form.summary}${form.image ? `\n\nImage: ${form.image}`: ''}`.slice(0, 1100),
 					url: form.url,
 					image: form.image,
 					hashtags: form.hashtags.split(/\s+/).filter(Boolean)
@@ -124,7 +124,8 @@ function AIAgent() {
 									<h5 className="mb-1">{it.title}</h5>
 									<small>{it.type}</small>
 								</div>
-								<p className="mb-1">{it.summary}</p>
+								{it.image && <img alt="preview" src={it.image} style={{maxWidth:'100%', borderRadius:6, marginTop:6}} />}
+								<p className="mb-1 mt-2">{it.summary}</p>
 								<small>{it.url}</small>
 							</button>
 						))}
@@ -134,6 +135,7 @@ function AIAgent() {
 					<div className="card">
 						<div className="card-body">
 							<h5 className="card-title">Edit & Approve</h5>
+							{form.image && <img alt="selected" src={form.image} style={{maxWidth:'100%', borderRadius:6, marginBottom:10}} />}
 							<input className="form-control mb-2" placeholder="Title" value={form.title} onChange={updateField('title')} />
 							<textarea className="form-control mb-2" rows={6} placeholder="Summary" value={form.summary} onChange={updateField('summary')} />
 							<input className="form-control mb-2" placeholder="URL" value={form.url} onChange={updateField('url')} />
