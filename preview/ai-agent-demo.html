@@ -17,7 +17,11 @@
   <div class="container py-4">
     <div class="d-flex align-items-center justify-content-between mb-3">
       <h2 class="m-0">AI Tech Content Agent</h2>
-      <span class="badge bg-secondary demo-badge">Demo mode (no backend)</span>
+      <span class="badge bg-secondary demo-badge">Demo tries backend first; falls back to mock</span>
+    </div>
+
+    <div class="alert alert-light py-2">
+      Tip: set window.DEMO_API_BASE = 'http://127.0.0.1:8000' in DevTools, then reload.
     </div>
 
     <div id="root"></div>
@@ -31,6 +35,7 @@
     const { useMemo, useState, useEffect } = React;
 
     const defaultHashtags = ["#G-TechRising", "#PlantHerTechFuture", "#RuralWomenInTech"];
+    const API_BASE = ((window.DEMO_API_BASE || 'http://127.0.0.1:8000') + '/api');
 
     function AIAgentDemo() {
       const [tab, setTab] = useState("news");
@@ -55,13 +60,33 @@
       }), []);
 
       useEffect(() => {
+        let didCancel = false;
         setLoading(true);
         setMessage("");
-        setTimeout(() => {
-          setItems(demoData[tab] || []);
-          setLoading(false);
-          setMessage("Loaded demo data (no backend)");
-        }, 200);
+
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 6000);
+
+        fetch(`${API_BASE}/ai/generate/?type=${tab}`, { signal: controller.signal })
+          .then(async (res) => {
+            if (!res.ok) throw new Error('bad_status');
+            const data = await res.json();
+            if (didCancel) return;
+            setItems(data.items || []);
+            setMessage("Loaded live data from backend");
+          })
+          .catch(() => {
+            if (didCancel) return;
+            setItems(demoData[tab] || []);
+            setMessage("Loaded demo data (backend unavailable)");
+          })
+          .finally(() => {
+            if (didCancel) return;
+            clearTimeout(timeoutId);
+            setLoading(false);
+          });
+
+        return () => { didCancel = true; clearTimeout(timeoutId); controller.abort(); };
       }, [tab, demoData]);
 
       const onSelect = (it) => {
