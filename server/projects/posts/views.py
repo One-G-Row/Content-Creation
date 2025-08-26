@@ -306,7 +306,6 @@ def post_to_linkedin(request):
         if not access_token or not org_urn:
             return JsonResponse({"error": "LinkedIn credentials not configured"}, status=500)
 
-        # Build UGC post with optional link; include image URL in text as fallback preview
         headers = {
             'Authorization': f'Bearer {access_token}',
             'X-Restli-Protocol-Version': '2.0.0',
@@ -340,3 +339,49 @@ def post_to_linkedin(request):
         return JsonResponse({"message": "Posted to LinkedIn", "result": resp.json()})
     except Exception as e:
         return JsonResponse({"error": f"Failed to post to LinkedIn: {str(e)}"}, status=500)
+
+
+@csrf_exempt
+def post_to_instagram(request):
+    if request.method != 'POST':
+        return JsonResponse({"error": "Invalid request method"}, status=405)
+    try:
+        data = json.loads(request.body)
+        caption = data.get('text')
+        image_url = data.get('image')
+        hashtags = data.get('hashtags') or DEFAULT_HASHTAGS
+
+        ig_user_id = os.getenv('IG_USER_ID')
+        fb_access_token = os.getenv('FACEBOOK_ACCESS_TOKEN')
+        if not ig_user_id or not fb_access_token:
+            return JsonResponse({"error": "Instagram credentials not configured"}, status=500)
+        caption_full = f"{caption}\n\n{' '.join(hashtags)}"
+
+        create_resp = requests.post(
+            f"https://graph.facebook.com/v20.0/{ig_user_id}/media",
+            data={
+                'image_url': image_url,
+                'caption': caption_full,
+                'access_token': fb_access_token,
+            },
+            timeout=15
+        )
+        if not create_resp.ok:
+            return JsonResponse({"error": "Instagram create error", "details": create_resp.text}, status=create_resp.status_code)
+        container_id = create_resp.json().get('id')
+        if not container_id:
+            return JsonResponse({"error": "Instagram container id missing"}, status=500)
+
+        publish_resp = requests.post(
+            f"https://graph.facebook.com/v20.0/{ig_user_id}/media_publish",
+            data={
+                'creation_id': container_id,
+                'access_token': fb_access_token,
+            },
+            timeout=15
+        )
+        if not publish_resp.ok:
+            return JsonResponse({"error": "Instagram publish error", "details": publish_resp.text}, status=publish_resp.status_code)
+        return JsonResponse({"message": "Posted to Instagram", "result": publish_resp.json()})
+    except Exception as e:
+        return JsonResponse({"error": f"Failed to post to Instagram: {str(e)}"}, status=500)
