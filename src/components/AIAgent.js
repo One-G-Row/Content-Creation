@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import Navbar from "./Navbar";
 import Footer from "./HomeFooter";
 
-const API_BASE = (process.env.REACT_APP_API_BASE || "http://127.0.0.1:8000") + "/api";
+const API_BASE = (import.meta.env.VITE_API_BASE || "http://localhost:8000") + "/api";
 
 const defaultHashtags = ["#G-TechRising", "#PlantHerTechFuture", "#RuralWomenInTech"]; 
 
