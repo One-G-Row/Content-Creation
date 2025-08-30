@@ -12,7 +12,7 @@ from django.shortcuts import render
 from django.contrib.auth import get_user_model
 from django.conf import settings
 from datetime import datetime
-from .models import Post, Event, Project, Volunteer
+# from .models import Post, Event, Project, Volunteer
 from PIL import Image, ImageDraw, ImageFont
 from io import BytesIO
 import os
@@ -31,15 +31,34 @@ except Exception:
 DEFAULT_HASHTAGS = ["#G-TechRising", "#PlantHerTechFuture", "#RuralWomenInTech"]
 
 AFRICAN_NEWS_RSS = [
+    "https://womenintechafrica.com/feed",
+    "https://womenintechafrica.com/blog/feed",
+    "https://rss.feedspot.com/women_in_tech_africa_blog_rss_feed/",
+    "https://medium.com/feed/shecodeafrica",
+    "https://www.girlcode.co.za/blog/feed",
+    "https://www.girlcodeafrica.org/feed/",
+    "https://africa.unwomen.org/en/rss-feeds",
     "https://techcabal.com/feed/",
-    "https://disrupt-africa.com/feed/",
+    "https://disruptafrica.com/feed/",
+    "https://www.unwomen.org/en/rss-feeds",
+    "https://www.africantechroundup.com/feed/",
+    "https://globalvoices.org/feeds/",
+    "https://www.voaafrica.com/rssfeeds",
+    "https://feeds.news24.com/articles/news24/tech/rss",
+    "https://www.afdb.org/en/rss-feeds",
     "https://techpoint.africa/feed/",
     "https://www.itweb.co.za/rss/site/itweb-africa",
     "https://ventureburn.com/feed/",
     "https://cioafrica.com/feeds/all/",
+    "https://disrupt-africa.com/feed/",
 ]
 
 INTERNATIONAL_NEWS_RSS = [
+    "https://www.womenintechnology.org/index.php?option=com_dailyplanetblog&task=feed&type=rss&format=feed",
+    "https://www.womengotech.com/feed/",
+    "https://code.likeagirl.io/feed",
+    "https://medium.com/feed/@girlswhocode",
+    "https://theblackwomenintech.com/feed/",
     "https://techcrunch.com/tag/africa/feed/",
     "https://thenextweb.com/news/africa/rss",
 ]
@@ -49,9 +68,14 @@ SUCCESS_STORIES_RSS = [
     "https://disrupt-africa.com/category/startups/funding/feed/",
 ]
 
+
 EVENT_SOURCES = [
     {"name": "Eventbrite Africa Tech", "url": "https://www.eventbrite.com/d/africa/technology--events/"},
     {"name": "Eventbrite Free Virtual Tech", "url": "https://www.eventbrite.com/d/online/tech/?price=free"},
+]
+
+OTHER_SOURCES = [
+    "https://techlitafrica.org/blog/",
 ]
 
 
@@ -134,14 +158,14 @@ def extract_image_from_entry(entry):
     return None
 
 
-def fetch_rss_entries(feed_urls, limit=10):
+def fetch_rss_entries(feed_urls, overall_limit=100, per_source_limit=3):
     items = []
     if not feedparser:
         return items
     for url in feed_urls:
         try:
             parsed = feedparser.parse(url)
-            for entry in parsed.entries[:limit]:
+            for entry in parsed.entries[:per_source_limit]:
                 image_url = extract_image_from_entry(entry)
                 items.append({
                     "title": _safe_get(entry, "title", default=""),
@@ -150,6 +174,8 @@ def fetch_rss_entries(feed_urls, limit=10):
                     "published": _safe_get(entry, "published", default=""),
                     "image": image_url,
                 })
+                if len(items) >= overall_limit:
+                    return items
         except Exception:
             continue
     return items
@@ -209,29 +235,43 @@ def maybe_openai_summarize(text, max_tokens=100):
 @cache_page(60)
 def ai_generate(request):
     content_type = request.GET.get('type', 'news')  # news | events | success
-    limit = int(request.GET.get('limit', '12'))
+    limit = int(request.GET.get('limit', '100'))
 
     payload = []
 
     if content_type == 'news':
-        entries = fetch_rss_entries(AFRICAN_NEWS_RSS, limit=limit)
+        per_source = int(request.GET.get('per_source', '3'))
+
+        entries = fetch_rss_entries(
+            AFRICAN_NEWS_RSS,
+            overall_limit=limit,
+            per_source_limit=per_source
+        )
+
         if len(entries) < limit:
-            entries += fetch_rss_entries(INTERNATIONAL_NEWS_RSS, limit=max(0, limit - len(entries)))
+            remaining = max(0, limit - len(entries))
+            entries += fetch_rss_entries(
+                INTERNATIONAL_NEWS_RSS,
+                overall_limit=remaining,
+                per_source_limit=per_source
+            )
+
         for e in entries[:limit]:
             og = extract_open_graph(e.get('link'))
             summary_text = e.get('summary') or og.get('description')
             summarized = maybe_openai_summarize(summary_text or "")
             payload.append({
                 "type": "news",
-                "title": e.get('title'),
+                "title": e.get("title"),
                 "summary": summarized,
-                "url": e.get('link'),
-                "image": _first_non_empty(e.get('image'), og.get('image')),
+                "url": e.get("link"),
+                "image": _first_non_empty(e.get("image"), og.get("image")),
                 "hashtags": DEFAULT_HASHTAGS,
             })
 
     elif content_type == 'success':
-        entries = fetch_rss_entries(SUCCESS_STORIES_RSS, limit=limit)
+        per_source = int(request.GET.get('per_source', '3'))
+        entries = fetch_rss_entries(SUCCESS_STORIES_RSS, overall_limit=limit, per_source_limit=per_source)
         for e in entries[:limit]:
             og = extract_open_graph(e.get('link'))
             summary_text = e.get('summary') or og.get('description')
