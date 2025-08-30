@@ -1,0 +1,39 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Python Virtual Environment
+server/venv/
+server/__pycache__/
+server/*/__pycache__/
+*.pyc
+*.pyo
+
+# Environment variables
+.env
+.env.local
+server/.env
+
+# Database
+server/db.sqlite3
+*.db
+
+# Build outputs
+dist/
+build/
+.vite/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db

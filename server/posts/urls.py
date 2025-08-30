@@ -1,5 +1,5 @@
 from django.urls import path
-from server.projects.posts import views
+from . import views
 
 urlpatterns = [
 	path('ai/generate/', views.ai_generate, name='ai_generate'),
