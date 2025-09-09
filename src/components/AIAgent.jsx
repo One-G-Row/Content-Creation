@@ -64,7 +64,47 @@ function AIAgent() {
 
 	const updateField = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
-	const shareLinkedIn = async () => {
+//updated post to linkedin code to post using zapier
+const shareLinkedIn = async () => {
+  setLoading(true);
+
+  try {
+    const payload = {
+      text: `${form.title}\n\n${form.summary}${form.image ? `\n\nImage: ${form.image}` : ''}`.slice(0, 1100),
+      link_url: form.url || null,
+      link_title: form.title || "",
+      link_description: form.summary || "",
+      image_url: form.image || null,
+      hashtags: form.hashtags.split(/\s+/).filter(Boolean)
+    };
+
+    const response = await fetch(`${API_BASE}/social/linkedin/`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    });
+
+    const result = await response.json();
+    console.log('LinkedIn Post Result:', result);
+
+    if (result.success) {
+      alert('Post successfully sent to LinkedIn!');
+    } else {
+      alert(`Failed to post: ${result.error}`);
+    }
+
+  } catch (error) {
+    console.error('Error posting to LinkedIn:', error);
+    alert('An error occurred while posting to LinkedIn.');
+  } finally {
+    setLoading(false);
+  }
+};
+
+
+/* 	const shareLinkedIn = async () => {
 		setMessage("");
 		try {
 			const res = await fetch(`${API_BASE}/social/linkedin/`, {
@@ -83,7 +123,7 @@ function AIAgent() {
 		} catch (e) {
 			setMessage(e.message || "LinkedIn share unavailable in demo mode");
 		}
-	};
+	}; */
 
 	const shareInstagram = async () => {
 		setMessage("");
