@@ -9,6 +9,8 @@ load_dotenv(BASE_DIR / '.env')
 SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'dev-secret-key')
 DEBUG = True
 ALLOWED_HOSTS = ['*']
+ZAPIER_WEBHOOK_URL = "https://hooks.zapier.com/hooks/catch/22388206/uhf7vpq/"
+
 
 INSTALLED_APPS = [
     'corsheaders',

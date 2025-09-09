@@ -19,6 +19,14 @@ import os
 import requests
 import json
 from urllib.parse import urljoin
+#latest import adds
+from datetime import datetime
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+from django.conf import settings
+
+
+
 try:
     import feedparser
 except Exception:
@@ -329,9 +337,93 @@ def ai_generate(request):
 
     return JsonResponse({"items": payload})
 
-
 @csrf_exempt
+def post_to_buffer(request):
+    if request.method != 'POST':
+        return JsonResponse({"error": "Invalid request method"}, status=405)
+    try:
+        data = json.loads(request.body)
+        text = data.get('text') or ''
+        share_url = data.get('url')
+        image_url = data.get('image')
+        hashtags = data.get('hashtags') or DEFAULT_HASHTAGS
+
+        access_token = os.getenv('BUFFER_ACCESS_TOKEN')
+        profile_id = os.getenv('BUFFER_PROFILE_ID')
+        if not access_token or not profile_id:
+            return JsonResponse({"error": "Buffer credentials not configured"}, status=500)
+
+        body_text = f"{text}\n\n{share_url or ''}\n\n{' '.join(hashtags)}".strip()
+        payload = {
+            'profile_ids[]': profile_id,
+            'text': body_text[:2200],
+            'now': 'true',
+        }
+        if share_url:
+            payload['media[link]'] = share_url
+        if image_url:
+            payload['media[picture]'] = image_url
+
+        resp = requests.post(
+            'https://api.bufferapp.com/1/updates/create.json',
+            headers={'Authorization': f'Bearer {access_token}'},
+            data=payload,
+            timeout=15
+        )
+        if not resp.ok:
+            return JsonResponse({"error": "Buffer API error", "details": resp.text}, status=resp.status_code)
+        return JsonResponse({"message": "Posted via Buffer", "result": resp.json()})
+    except Exception as e:
+        return JsonResponse({"error": f"Failed to post via Buffer: {str(e)}"}, status=500)
+
+
+#updated linked in post view using zapier
+@api_view(['POST'])
 def post_to_linkedin(request):
+    webhook_url = settings.ZAPIER_WEBHOOK_URL  # Store securely in settings
+
+    # Extract data from request
+    text = request.data.get('text')
+    link_url = request.data.get('link_url')
+    link_title = request.data.get('link_title')
+    link_description = request.data.get('link_description')
+    image_url = request.data.get('image_url')
+    hashtags = request.data.get('hashtags', [])
+
+    # Build payload for Zapier
+    payload = {
+        'text': text,
+        'link_url': link_url,
+        'link_title': link_title,
+        'link_description': link_description,
+        'image_url': image_url,
+        'hashtags': hashtags,
+        'timestamp': datetime.now().isoformat()
+    }
+
+    try:
+        response = requests.post(
+            webhook_url,
+            json=payload,
+            headers={'Content-Type': 'application/json'},
+            timeout=15
+        )
+
+        return Response({
+            'success': True,
+            'zapier_response': response.json() if response.content else None
+        })
+
+    except Exception as e:
+        return Response({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+
+
+
+"""@csrf_exempt
+ def post_to_linkedin(request):
     if request.method != 'POST':
         return JsonResponse({"error": "Invalid request method"}, status=405)
     try:
@@ -378,7 +470,7 @@ def post_to_linkedin(request):
             return JsonResponse({"error": "LinkedIn API error", "details": resp.text}, status=resp.status_code)
         return JsonResponse({"message": "Posted to LinkedIn", "result": resp.json()})
     except Exception as e:
-        return JsonResponse({"error": f"Failed to post to LinkedIn: {str(e)}"}, status=500)
+        return JsonResponse({"error": f"Failed to post to LinkedIn: {str(e)}"}, status=500) """
 
 
 @csrf_exempt
